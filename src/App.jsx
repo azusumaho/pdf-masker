@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { pdfjsLib } from './pdf.js'
 import PdfPage from './PdfPage.jsx'
+import Preview from './Preview.jsx'
+import { maskPages } from './maskPages.js'
+import { buildPdf } from './buildPdf.js'
 
 const ZOOMS = [50, 75, 100, 125, 150]
 
@@ -14,6 +17,9 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [nextId, setNextId] = useState(1)
   const [zoom, setZoom] = useState(100)
+  const [preview, setPreview] = useState(null) // 黒塗り後の全ページ画像
+  const [progress, setProgress] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   // PDFはブラウザ内のメモリだけで扱う(送信・保存はしない)
   async function handleFile(e) {
@@ -61,6 +67,41 @@ export default function App() {
     }
   }
 
+  // 書き出し前に、黒塗り後の見た目をプレビューする
+  async function openPreview() {
+    setError('')
+    setProgress('黒塗り後の画像を作っています…')
+    try {
+      const masked = await maskPages(pdf, rects, (n, total) =>
+        setProgress(`黒塗り後の画像を作っています…(${n}/${total}ページ)`),
+      )
+      setPreview(masked)
+    } catch {
+      setError('プレビューの作成に失敗しました。')
+    } finally {
+      setProgress('')
+    }
+  }
+
+  // 画像だけの新しいPDFを作って、ダウンロードする
+  async function exportPdf() {
+    setExporting(true)
+    try {
+      const bytes = await buildPdf(preview)
+      const blob = new Blob([bytes], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName.replace(/\.pdf$/i, '') + '_マスク済み.pdf'
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      setError('PDFの書き出しに失敗しました。')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const pages = pdf ? Array.from({ length: pdf.numPages }, (_, i) => i + 1) : []
 
   return (
@@ -70,7 +111,7 @@ export default function App() {
         PDFはこのブラウザの中だけで処理します。外部への送信や保存はしません。
       </p>
 
-      <div className="toolbar">
+      <div className="toolbar" hidden={!!preview}>
         <label className="button">
           PDFファイルを選ぶ
           <input type="file" accept="application/pdf" onChange={handleFile} hidden />
@@ -84,6 +125,13 @@ export default function App() {
         <button className="button" onClick={clearAll} disabled={rects.length === 0}>
           全て消す
         </button>
+        <button
+          className="button primary"
+          onClick={openPreview}
+          disabled={rects.length === 0 || !!progress}
+        >
+          黒塗りして書き出す
+        </button>
         <label className="zoom">
           表示の大きさ
           <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
@@ -96,6 +144,7 @@ export default function App() {
         </label>
       </div>
 
+      {progress && <p className="info">{progress}</p>}
       {error && <p className="error">{error}</p>}
       {pdf && (
         <p className="info">
@@ -105,7 +154,16 @@ export default function App() {
         </p>
       )}
 
-      <div className="viewer">
+      {preview && (
+        <Preview
+          pages={preview}
+          exporting={exporting}
+          onExport={exportPdf}
+          onBack={() => setPreview(null)}
+        />
+      )}
+
+      <div className="viewer" hidden={!!preview}>
         {pdf ? (
           <div className="pages" style={{ width: `${zoom}%` }}>
             {pages.map((n) => (

@@ -145,3 +145,45 @@ button.button:disabled {
   color: #6b7a6b;
   text-align: center;
 }
+
+button.button.primary {
+  background: var(--green-dark);
+  box-shadow: 0 0 0 2px var(--green-light) inset;
+}
+
+.warning {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  background: #fff4e5;
+  border-left: 4px solid #e65100;
+  color: #7a2e00;
+  font-weight: bold;
+}
+
+.preview-pages {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #cfd8cf;
+}
+
+.preview-page {
+  margin: 0 0 24px;
+}
+
+.preview-page figcaption {
+  margin-bottom: 4px;
+  font-size: 0.9em;
+  color: #6b7a6b;
+}
+
+.preview-page img {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+}
+
+[hidden] {
+  display: none !important;
+}

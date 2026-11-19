@@ -2,3 +2,4 @@ node_modules
 dist
 ~$*
 .env
+*_マスク済み.pdf

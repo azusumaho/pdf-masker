@@ -4,6 +4,8 @@ import PdfPage from './PdfPage.jsx'
 import Preview from './Preview.jsx'
 import { maskPages } from './maskPages.js'
 import { buildPdf } from './buildPdf.js'
+import AutoDetect from './AutoDetect.jsx'
+import { detectAll, KINDS } from './detect.js'
 
 const ZOOMS = [50, 75, 100, 125, 150]
 
@@ -20,6 +22,7 @@ export default function App() {
   const [preview, setPreview] = useState(null) // 黒塗り後の全ページ画像
   const [progress, setProgress] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [detectMessage, setDetectMessage] = useState('')
 
   // PDFはブラウザ内のメモリだけで扱う(送信・保存はしない)
   async function handleFile(e) {
@@ -34,6 +37,7 @@ export default function App() {
       setFileName(file.name)
       setRects([])
       setSelectedId(null)
+      setDetectMessage('')
     } catch {
       setPdf(null)
       setFileName('')
@@ -64,6 +68,43 @@ export default function App() {
     if (window.confirm(`黒塗り予定の範囲${rects.length}件を、すべて消しますか?`)) {
       setRects([])
       setSelectedId(null)
+    }
+  }
+
+  // 文字入りPDFから候補を探し、赤枠(黒塗り予定の範囲)として追加する
+  async function runDetect({ kinds, words }) {
+    setError('')
+    setDetectMessage('')
+    setProgress('候補を探しています…')
+    try {
+      const { rects: found, charCount } = await detectAll(
+        pdf,
+        { kinds, words },
+        (n, total) => setProgress(`候補を探しています…(${n}/${total}ページ)`),
+      )
+      let id = nextId
+      const added = found.map((r) => ({ id: id++, ...r }))
+      setNextId(id)
+      // 前回の自動候補は入れ替える(手動の枠は残す)
+      setRects((prev) => [...prev.filter((r) => !r.kind), ...added])
+      setSelectedId(null)
+
+      if (charCount === 0) {
+        setDetectMessage(
+          'このPDFには文字データがありません(スキャン画像の可能性があります)。文字の自動認識(OCR)は対象外のため、手動で囲んでください。',
+        )
+      } else if (added.length === 0) {
+        setDetectMessage('候補は見つかりませんでした。手動で囲むか、単語リストを使ってください。')
+      } else {
+        const counts = KINDS.map((k) => [k.label, added.filter((r) => r.kind === k.id).length])
+          .filter(([, c]) => c > 0)
+          .map(([label, c]) => `${label}${c}件`)
+        setDetectMessage(`${added.length}件の候補を追加しました(${counts.join('、')})。`)
+      }
+    } catch {
+      setError('候補の検出に失敗しました。')
+    } finally {
+      setProgress('')
     }
   }
 
@@ -142,6 +183,15 @@ export default function App() {
             ))}
           </select>
         </label>
+      </div>
+
+      <div hidden={!!preview}>
+        <AutoDetect
+          disabled={!pdf}
+          busy={!!progress}
+          message={detectMessage}
+          onDetect={runDetect}
+        />
       </div>
 
       {progress && <p className="info">{progress}</p>}

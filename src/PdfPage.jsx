@@ -121,7 +121,9 @@ export default function PdfPage({
                 e.stopPropagation()
                 onSelect(r.id)
               }}
-            />
+            >
+              {r.label && <span className="rect-label">{r.label}</span>}
+            </div>
           ))}
           {draft && <div className="rect draft" style={pct(draft)} />}
         </div>

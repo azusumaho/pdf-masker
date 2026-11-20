@@ -35,4 +35,4 @@ npm install
 npm run dev
 ```
 
-公開URL: (後で追記します)
+公開URL: https://pdf-masker.vercel.app/
